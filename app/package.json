@@ -1,0 +1,22 @@
+{
+  "name": "SmartSync",
+  "version": "1.0.0",
+  "description": "An automatic uploader to AWS S3.",
+  "main": "main.js",
+  "scripts": {
+    "postinstall": "install-app-deps",
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Ritbik Bharti",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^8.0.3",
+    "electron-builder": "^22.4.1"
+  },
+  "dependencies": {
+    "chokidar": "^3.3.1",
+    "menubar": "^8.0.0",
+    "request": "^2.88.2"
+  }
+}
