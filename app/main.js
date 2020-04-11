@@ -1,14 +1,34 @@
-const { app, BrowserWindow , Tray, Menu, dialog } = require('electron');
+const { app, BrowserWindow , Tray, Menu, dialog, ipcMain } = require('electron');
 const fs = require('fs');
 const req = require('request');
 var chokidar = require("chokidar");
 const nativeImage = require('electron').nativeImage
 var path = require('path');
+var os = require('os');
 const {Notification} = require('electron');
 
+const { Client } = require('pg')
+const conectionString='postgressql://petcitrusevqze:95139e9143a89ed96bb744cd186060ba9c71cee439bc71d5614b9784a42fbbcf@ec2-34-204-22-76.compute-1.amazonaws.com:5432/dr7l86pgmeq30';
+
+const lawfirm = "ABC Law Firm";
+const systemuser = os.userInfo().username
+const appdir = "C:/Users/"+systemuser+"/"+"Desktop"+"/"+lawfirm;
+const length = 9+systemuser.length+9
+
+var currDir, currDir1;
+
 let mainWindow = null;
+let child;
 let isQuiting;
 let tray;
+
+const returnDir = exports.returnDir = filepath => {
+  //console.log(filepath);
+  currDir1 = filepath.substr(length,filepath.length)
+  currDir = currDir1.replace(/\\/g, "/");
+  console.log("Current dir : "+currDir)
+};
+
 
 app.on('before-quit', function () {
   isQuiting = true;
@@ -39,10 +59,23 @@ app.on('ready', () => {
     }
   });
 
-  mainWindow.loadFile('index.html');
-  
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+  mainWindow.loadFile('home.html');
+
+  child = new BrowserWindow({
+    parent: mainWindow,
+    width:400,
+    height:550,
+    frame:false,
+    show:false,
+    webPreferences: {
+      nodeIntegration: true
+    }
+  });
+
+  child.loadFile('login.html');
+
+  child.once('ready-to-show', () => {
+    child.show();
   });
 
   mainWindow.on('close', function (event) {
@@ -54,6 +87,41 @@ app.on('ready', () => {
   });
 
 });
+
+ipcMain.on('entry-accepted', (event, arg) => {
+  if(arg=='ping'){
+      mainWindow.show();
+      child.hide();
+  }
+})
+
+const login = exports.login = (username,pwd) => {
+  const client= new Client({
+    connectionString:conectionString,
+    ssl: { rejectUnauthorized: false }
+  })
+  client.connect()
+
+  var sql = `SELECT password FROM public."Users" where id=$1 and password=$2;`;
+  client.query(sql, [username,pwd] , function(err, res) {
+      if(res.rowCount>0){
+        if(res.rows[0].password==pwd){
+          mainWindow.show();
+          child.hide();
+        }
+      }
+      else{
+        const options = {
+          type: 'info',
+          message: 'Incorrect username or password! Please Check.'
+        };
+        dialog.showMessageBox(null, options);
+      }
+      client.end()
+  });
+};
+
+
 
 app.on('window-all-closed', () => {
   // On macOS it is common for applications and their menu bar
@@ -73,16 +141,21 @@ app.on('activate', () => {
 
 // Select directory to watch for file changes
 const watchdir = exports.watchdir = () => {
+  /*
   dialog.showOpenDialog({
     properties: ['openDirectory'],
     buttonLabel: 'Watch This',
     title: 'Smart Sync Directory Selector'
   }).then(result => {
     console.log(result.filePaths[0])
-    StartWatcher(result.filePaths[0])
+    StartWatcher(result.filePaths[0]);
   }).catch(err => {
     console.log(err)
-  })
+  })*/
+
+  //var dirw = "C:/Users/Asus/Desktop/ABC Law Firm";
+
+  StartWatcher(appdir);
 };
 
 // Stop the currently running watcher
@@ -90,6 +163,7 @@ const StopWatcher = exports.StopWatcher = () => {
   watcher.close().then(() => console.log('Watcher is closed'));
 };
 
+/*
 // Function to select files using dialog box
 const getFileFromUser = exports.getFileFromUser = () => {
   const files = dialog.showOpenDialog({
@@ -107,10 +181,13 @@ const getFileFromUser = exports.getFileFromUser = () => {
   })
 
 };
+*/
 
 // Function to get files using drag and drop
 const getDraggedFileFromUser = exports.getDraggedFileFromUser = filepath => {
-  console.log(filepath)
+  //console.log(app.getPath('userData'))
+  console.log("Path of dragged file : "+filepath)
+  console.log("Current Directory : "+currDir)
   get_url(filepath);
 };
 
@@ -120,7 +197,27 @@ function get_url(filepath) {
   var url = 'https://s3signedurlapi.herokuapp.com/getSignedUrl?name=';
   var filename = path.parse(filepath).base;
   console.log(filename);
-  var URL = url.concat(filename)
+  var URL = url.concat(currDir)
+  var URL = URL.concat("/"+filename)
+  //GET Request -- gets the presigned url
+  req.get(URL, function(err,res, body) {
+    if (err) {
+        return console.log(err);
+    }
+    console.log("Status code for GET SignedURL: ", res.statusCode);
+    upload_files(body, filepath);     //URL is passed to upload function to give PUT Request to S3
+  });
+}
+
+// Function to get presigned url for watcher
+function get_urlwatcher(filepath) {
+  var url = 'https://s3signedurlapi.herokuapp.com/getSignedUrl?name=';
+  var filename = path.parse(filepath).base;
+  console.log(filename);
+  var URL = url.concat(filepath.substr(length,filepath.length))
+  //var URL = URL.concat("/"+filename)
+  var URL = URL.replace(/\\/g, "/");
+  console.log(URL);
   //GET Request -- gets the presigned url
   req.get(URL, function(err,res, body) {
     if (err) {
@@ -132,7 +229,7 @@ function get_url(filepath) {
 }
 
 
-//Fucntion to PUT Request -- puts the object to AWS S3 Bucket
+//Function to PUT Request -- puts the object to AWS S3 Bucket
 function upload_files(body, filepath) {
   fs.readFile(filepath, function(err, data){        //file is read from the system
       if(err){
@@ -154,8 +251,11 @@ function upload_files(body, filepath) {
 function delete_files(filepath) {
   var url = 'https://s3signedurlapi.herokuapp.com/deleteObject?name=';
   var filename = path.parse(filepath).base;
-  console.log(filename);
-  var URL = url.concat(filename)
+  //console.log(filename);
+  var URL = url.concat(filepath.substr(length,filepath.length))
+  //var URL = URL.concat("/"+filename)
+  var URL = URL.replace(/\\/g, "/");
+
 
   req.del(URL, function(error,res,body) {
       if(error) {
@@ -182,14 +282,14 @@ function StartWatcher(path){
   watcher
   .on('add', function(path) {
         console.log('File', path, 'has been added');
-        get_url(path);
+        get_urlwatcher(path);
   })
   .on('addDir', function(path) {
         console.log('Directory', path, 'has been added');
   })
   .on('change', function(path) {
        console.log('File', path, 'has been changed');
-       get_url(path);
+       get_urlwatcher(path);
   })
   .on('unlink', function(path) {
        console.log('File', path, 'has been removed');
@@ -212,6 +312,7 @@ function callNotification(not){
   const notif={
         title: 'Zoom Smart Sync',
         body: not,
+        icon: nativeImage.createFromPath('C:/Users/Asus/Desktop/Electron App/icon.png')
       };
   new Notification(notif).show();
 }
