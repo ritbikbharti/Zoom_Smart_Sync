@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+
+    <meta charset="UTF-8">
+    <title>Zoom Smart Sync</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
+
+  </head>
+
+  <body>
+    <template id="item-template">
+      <div class="item">
+        <img class="icon"/>
+        <div class="filename"></div>
+      </div>
+    </template>
+
+    <div class="topnav">
+      <p class="firmname">City Law Firm</p>
+      <button>
+        <i class="fas fa-power-off" style="margin-top: 5px;"></i>
+      </button>
+      <p style="float: right">Auto Sync</p>
+      <label class="switch">
+        <input type="checkbox">
+        <span class="slider round"></span>
+      </label>
+    </div>
+
+    <buttton class="float" onclick="callback()">
+      <i class="fa fa-arrow-circle-left my-float" style="font-size: 50px;"></i>
+    </buttton>
+
+    <div id="main-area"></div>
+
+
+    <!--
+    <section class=content id='drop-zone'>
+      <p>
+        Drag your file here to upload.
+      </p>
+    </section>
+    
+    <div class="wrapper">
+      <button id="open-file"> Or, Upload Files by Selecting files. </button>
+    </div>
+  -->
+
+    <div class="footer">
+      <p>Powered by INSZoom</p>
+    </div>
+
+    <script>
+      const { remote } = require('electron');
+      const mainProcess = remote.require('./main');
+      const dropfileszone = document.getElementById('main-area');
+      var checkbox = document.querySelector('input[type="checkbox"]');
+
+      document.addEventListener('dragstart', event => event.preventDefault() );
+      document.addEventListener('dragover', event => event.preventDefault() );
+      document.addEventListener('dragleave', event => event.preventDefault() );
+      document.addEventListener('drop', event => event.preventDefault() );
+
+      dropfileszone.addEventListener('dragover', (event) => {
+          dropfileszone.classList.add('drag-over');
+      });
+
+      dropfileszone.addEventListener('dragleave', (event) => {
+          dropfileszone.classList.remove('drag-over');
+      });
+
+      dropfileszone.addEventListener('drop', (e) => {
+
+          e.preventDefault();
+          for (let f of e.dataTransfer.files) {
+              console.log('File(s) you dragged here: ', f.path);
+              mainProcess.getDraggedFileFromUser(f.path);
+          }
+
+          dropfileszone.classList.remove('drag-over');
+      });
+
+      checkbox.addEventListener('change', function () {
+      if (checkbox.checked) {
+          console.log('Checked');
+          mainProcess.watchdir();
+      } else {
+          console.log('Not checked');
+          mainProcess.stop();
+      }
+      });
+    </script>
+
+  </body>
+  <script>
+    require('./renderer');
+  </script>
+  <script src="app.js"></script>
+
+</html>
