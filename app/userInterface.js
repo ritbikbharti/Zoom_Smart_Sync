@@ -16,6 +16,10 @@ var prev2prevdirfolder;
 
 var folder, folder2, folder3;
 
+function displayFolderPath(folderPath) {
+  document.getElementById('firmname').innerHTML = mainProcess.dir();
+}
+
 function clearView() {
   const mainArea = document.getElementById('main-area');
   let firstChild = mainArea.firstChild;
@@ -46,6 +50,7 @@ function loadDirectory(folderPath) {
   folder2 = folder.concat(CurrFolder);
   folder3 = folder2.concat("/");*/
   mainProcess.returnDir(currdir);
+  displayFolderPath();
 
   return function (window) {
     if (!document) document = window.document;

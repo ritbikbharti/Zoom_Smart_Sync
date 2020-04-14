@@ -19,11 +19,10 @@
       </div>
     </template>
 
+    <div>
+
     <div class="topnav">
-      <p class="firmname">City Law Firm</p>
-      <button>
-        <i class="fas fa-power-off" style="margin-top: 5px;"></i>
-      </button>
+      <p id="firmname"></p>
       <p style="float: right">Auto Sync</p>
       <label class="switch">
         <input type="checkbox">
@@ -37,6 +36,8 @@
 
     <div id="main-area"></div>
 
+    </div>
+
 
     <!--
     <section class=content id='drop-zone'>
@@ -49,16 +50,19 @@
       <button id="open-file"> Or, Upload Files by Selecting files. </button>
     </div>
   -->
-
+  <footer>
     <div class="footer">
       <p>Powered by INSZoom</p>
     </div>
+  </footer>
 
     <script>
       const { remote } = require('electron');
       const mainProcess = remote.require('./main');
       const dropfileszone = document.getElementById('main-area');
       var checkbox = document.querySelector('input[type="checkbox"]');
+
+      //document.getElementById('firmname').innerHTML = mainProcess.returnFirmName();
 
       document.addEventListener('dragstart', event => event.preventDefault() );
       document.addEventListener('dragover', event => event.preventDefault() );
@@ -90,7 +94,7 @@
           mainProcess.watchdir();
       } else {
           console.log('Not checked');
-          mainProcess.stop();
+          mainProcess.StopWatcher();
       }
       });
     </script>

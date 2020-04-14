@@ -15,7 +15,7 @@ if (process.versions.electron) {
 
 function getUsersHomeFolder() {
   const home =  osenv.home();
-  const appdir = "/Desktop/ABC Law Firm";
+  const appdir = "/Desktop/City Law Firm";
   return home.concat(appdir);
   
   //return "C:/Users/Asus/Desktop/ABC Law Firm";

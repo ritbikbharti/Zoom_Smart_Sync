@@ -6,11 +6,13 @@ const nativeImage = require('electron').nativeImage
 var path = require('path');
 var os = require('os');
 const {Notification} = require('electron');
+const Store = require('electron-store');
+const store = new Store();
 
 const { Client } = require('pg')
 const conectionString='postgressql://petcitrusevqze:95139e9143a89ed96bb744cd186060ba9c71cee439bc71d5614b9784a42fbbcf@ec2-34-204-22-76.compute-1.amazonaws.com:5432/dr7l86pgmeq30';
 
-const lawfirm = "ABC Law Firm";
+let lawfirm = store.get('lawfirm');
 const systemuser = os.userInfo().username
 const appdir = "C:/Users/"+systemuser+"/"+"Desktop"+"/"+lawfirm;
 const length = 9+systemuser.length+9
@@ -22,12 +24,20 @@ let child;
 let isQuiting;
 let tray;
 
+const returnFirmName = exports.returnFirmName = () => {
+  return lawfirm;
+};
+
+//current directory shown in user interface
 const returnDir = exports.returnDir = filepath => {
-  //console.log(filepath);
   currDir1 = filepath.substr(length,filepath.length)
   currDir = currDir1.replace(/\\/g, "/");
   console.log("Current dir : "+currDir)
 };
+
+const dir = exports.dir = () => {
+  return currDir;
+}
 
 
 app.on('before-quit', function () {
@@ -40,7 +50,9 @@ app.on('ready', () => {
   tray.setContextMenu(Menu.buildFromTemplate([
     {
       label: 'Show App', click: function () {
-        mainWindow.show();
+        if(store.get('lawfirm')!=undefined){
+          mainWindow.show();
+        }
       }
     },
     {
@@ -75,7 +87,14 @@ app.on('ready', () => {
   child.loadFile('login.html');
 
   child.once('ready-to-show', () => {
-    child.show();
+    //store.delete('lawfirm');                           //Delete the saved configuration
+    if(store.get('lawfirm')==undefined){
+      child.show();
+    }
+    else{
+      lawfirm = store.get('lawfirm');
+      mainWindow.show();
+    }
   });
 
   mainWindow.on('close', function (event) {
@@ -106,6 +125,8 @@ const login = exports.login = (username,pwd) => {
   client.query(sql, [username,pwd] , function(err, res) {
       if(res.rowCount>0){
         if(res.rows[0].password==pwd){
+          store.set('lawfirm',username)
+          lawfirm = username;
           mainWindow.show();
           child.hide();
         }
@@ -141,20 +162,7 @@ app.on('activate', () => {
 
 // Select directory to watch for file changes
 const watchdir = exports.watchdir = () => {
-  /*
-  dialog.showOpenDialog({
-    properties: ['openDirectory'],
-    buttonLabel: 'Watch This',
-    title: 'Smart Sync Directory Selector'
-  }).then(result => {
-    console.log(result.filePaths[0])
-    StartWatcher(result.filePaths[0]);
-  }).catch(err => {
-    console.log(err)
-  })*/
-
-  //var dirw = "C:/Users/Asus/Desktop/ABC Law Firm";
-
+  console.log(appdir);
   StartWatcher(appdir);
 };
 
@@ -224,8 +232,26 @@ function get_urlwatcher(filepath) {
         return console.log(err);
     }
     console.log("Status code for GET SignedURL: ", res.statusCode);
-    upload_files(body, filepath);     //URL is passed to upload function to give PUT Request to S3
+    upload_sync_files(body, filepath);     //URL is passed to upload function to give PUT Request to S3
   });
+}
+
+//Function to PUT Request -- puts the object to AWS S3 Bucket
+function upload_sync_files(body, filepath) {
+  fs.readFile(filepath, function(err, data){        //file is read from the system
+      if(err){
+        return console.log(err);
+      }
+      req({                       //PUT Request
+        method: "PUT",
+        url: body,
+        body: data
+      }, function(err, res, body){
+        console.log(body);
+        console.log("Status code for PUT Object: ", res.statusCode, "\n");
+        callNotification("Files synced successfully\n");
+      })
+    });
 }
 
 
@@ -255,7 +281,6 @@ function delete_files(filepath) {
   var URL = url.concat(filepath.substr(length,filepath.length))
   //var URL = URL.concat("/"+filename)
   var URL = URL.replace(/\\/g, "/");
-
 
   req.del(URL, function(error,res,body) {
       if(error) {
