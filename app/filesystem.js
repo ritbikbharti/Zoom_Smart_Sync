@@ -1,4 +1,6 @@
 'use strict';
+const { remote } = require('electron');
+const mainProcess = remote.require('./main');
 
 const async = require('async');
 const fs = require('fs');
@@ -15,10 +17,8 @@ if (process.versions.electron) {
 
 function getUsersHomeFolder() {
   const home =  osenv.home();
-  const appdir = "/Desktop/City Law Firm";
+  const appdir = "/Desktop/".concat(mainProcess.returnFirmName());
   return home.concat(appdir);
-  
-  //return "C:/Users/Asus/Desktop/ABC Law Firm";
 }
 
 function getFilesInFolder(folderPath, cb) {

@@ -1,23 +1,19 @@
-const { app, BrowserWindow , Tray, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow , Tray, Menu, dialog, ipcMain, crashReporter, Notification, shell } = require('electron');
 const fs = require('fs');
 const req = require('request');
 var chokidar = require("chokidar");
 const nativeImage = require('electron').nativeImage
 var path = require('path');
-var os = require('os');
-const {Notification} = require('electron');
+const osenv = require('osenv');
 const Store = require('electron-store');
 const store = new Store();
 
-const { Client } = require('pg')
-const conectionString='postgressql://petcitrusevqze:95139e9143a89ed96bb744cd186060ba9c71cee439bc71d5614b9784a42fbbcf@ec2-34-204-22-76.compute-1.amazonaws.com:5432/dr7l86pgmeq30';
-
 let lawfirm = store.get('lawfirm');
-const systemuser = os.userInfo().username
-const appdir = "C:/Users/"+systemuser+"/"+"Desktop"+"/"+lawfirm;
-const length = 9+systemuser.length+9
+const home =  osenv.home();
+const appdir = home+"/Desktop/"+lawfirm;
+const length = home.length+9
 
-var currDir, currDir1;
+var currDir, currDir1, currDirPath;
 
 let mainWindow = null;
 let child;
@@ -26,6 +22,12 @@ let tray;
 
 const returnFirmName = exports.returnFirmName = () => {
   return lawfirm;
+};
+
+//path of current directory shown in user interface
+const returnDirPath = exports.returnDirPath = filepath => {
+  currDirPath = filepath;
+  console.log("Curr dir path: "+currDirPath);
 };
 
 //current directory shown in user interface
@@ -45,6 +47,14 @@ app.on('before-quit', function () {
 });
 
 app.on('ready', () => {
+
+  crashReporter.start({
+    productName: lawfirm,
+    companyName: 'INSZoom',
+    submitURL: 'https://your-domain.com/url-to-submit',
+  uploadToServer: false
+  })
+
   tray = new Tray(nativeImage.createFromPath('C:/Users/Asus/Desktop/Electron App/icon.png'));
 
   tray.setContextMenu(Menu.buildFromTemplate([
@@ -62,6 +72,35 @@ app.on('ready', () => {
       }
     }
   ]));
+
+  const template = [
+    {
+      label: 'Menu',
+      submenu: [
+        {
+          label: 'About Us',
+          click: function(){
+            shell.openExternal('https://inszoom.com');
+          }
+        },
+        {
+          label: 'Report Crash/Error',
+          click : function(){
+            shell.openExternal('mailto:ritbikbharti@gmail.com?Subject=Error%20Log%20File')
+          }
+        }
+      ]
+    },
+    {
+      label: 'Help',
+      click: function(){
+        shell.openExternal('https://inszoom.com')
+      }
+    }
+  ]
+
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
 
   mainWindow = new BrowserWindow({
     show: false,
@@ -87,7 +126,7 @@ app.on('ready', () => {
   child.loadFile('login.html');
 
   child.once('ready-to-show', () => {
-    //store.delete('lawfirm');                           //Delete the saved configuration
+    //store.delete('lawfirm');                          //Delete the saved configuration
     if(store.get('lawfirm')==undefined){
       child.show();
     }
@@ -107,38 +146,38 @@ app.on('ready', () => {
 
 });
 
-ipcMain.on('entry-accepted', (event, arg) => {
-  if(arg=='ping'){
+const login = exports.login = (username,pwd) => {
+
+  var url = 'https://s3signedurlapi.herokuapp.com/verifyUser?name=';
+  var url = url.concat(username);
+  var url = url.concat('&pwd=');
+  var URL  = url.concat(pwd);
+  req.get(URL, function(err,res,body) {
+    if (err) {
+        return console.log(err);
+    }
+    if(res.statusCode == '200'){
+      var folderstr = body;
+      var folders = folderstr.split('/');
+      fs.mkdir(appdir, { recursive: true }, (err) => { if (err) throw err; });
+      var x;
+      for(x in folders){
+        var fld = appdir.concat("/");
+        var fld = fld.concat(folders[x]);
+        fs.mkdir(fld, { recursive: true }, (err) => { if (err) throw err; });
+      }
+      store.set('lawfirm',username)
+      lawfirm = username;
       mainWindow.show();
       child.hide();
-  }
-})
-
-const login = exports.login = (username,pwd) => {
-  const client= new Client({
-    connectionString:conectionString,
-    ssl: { rejectUnauthorized: false }
-  })
-  client.connect()
-
-  var sql = `SELECT password FROM public."Users" where id=$1 and password=$2;`;
-  client.query(sql, [username,pwd] , function(err, res) {
-      if(res.rowCount>0){
-        if(res.rows[0].password==pwd){
-          store.set('lawfirm',username)
-          lawfirm = username;
-          mainWindow.show();
-          child.hide();
-        }
-      }
-      else{
-        const options = {
-          type: 'info',
-          message: 'Incorrect username or password! Please Check.'
-        };
-        dialog.showMessageBox(null, options);
-      }
-      client.end()
+    }
+    else{
+      const options = {
+        type: 'info',
+        message: 'Incorrect username or password! Please Check.'
+      };
+      dialog.showMessageBox(null, options);
+    }
   });
 };
 
@@ -196,8 +235,19 @@ const getDraggedFileFromUser = exports.getDraggedFileFromUser = filepath => {
   //console.log(app.getPath('userData'))
   console.log("Path of dragged file : "+filepath)
   console.log("Current Directory : "+currDir)
+  copyFile(filepath,currDirPath);
   get_url(filepath);
 };
+
+//Function to copy the file dragged in UI
+function copyFile(filepath, currDirPath) {
+  var filename = path.parse(filepath).base;
+  currDirPath = currDirPath.concat("/"+filename)
+  fs.copyFile(filepath, currDirPath, (err) => {
+    if (err) throw err;
+    console.log('source file was copied to destination folder');
+  });
+}
 
 
 // Function to get presigned url

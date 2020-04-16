@@ -2,7 +2,6 @@
 
 const fileSystem = require('./fileSystem');
 const userInterface = require('./userInterface');
-//const search = require('./search');
 
 function main() {
   userInterface.bindDocument(window);
@@ -21,6 +20,11 @@ function main() {
 function callback(){
   console.log("back button pressed");
   userInterface.goBack();
+}
+
+function refresh(){
+  console.log("refresh button pressed");
+  userInterface.refreshh();
 }
 
 window.onload = main;
