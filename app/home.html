@@ -54,7 +54,7 @@
     <script>
       const { remote } = require('electron');
       const mainProcess = remote.require('./main');
-      const fileSystem = require('./fileSystem');
+      const fileSystem = require('./filesystem');
       const userInterface = require('./userInterface');
       const { ipcRenderer } = require('electron');
       const dropfileszone = document.getElementById('main-area');

@@ -3,7 +3,7 @@ const { remote } = require('electron');
 const mainProcess = remote.require('./main');
 
 let document;
-const fileSystem = require('./fileSystem');
+const fileSystem = require('./filesystem');
 const path = require('path');
 
 var currdir;
@@ -55,11 +55,11 @@ function displayFile(file) {
   let clone = document.importNode(template.content, true);
   clone.querySelector('img').src = `images/${file.type}.svg`;
   clone.querySelector('img').setAttribute('data-filePath', file.path);
-  window.document.addEventListener("click", function() {
+  /*window.document.addEventListener("click", function() {
     if(menuDisplayed == true){
         menuBox.style.display = "none";
     }
-  }, true);
+  }, true);*/
 
   if (file.type === 'directory') {
     clone.querySelector('img')

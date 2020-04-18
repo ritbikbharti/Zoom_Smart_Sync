@@ -121,6 +121,8 @@ app.on('ready', () => {
 
   mainWindow.loadFile('home.html');
 
+  mainWindow.webContents.openDevTools()
+
   child = new BrowserWindow({
     parent: mainWindow,
     width:400,
