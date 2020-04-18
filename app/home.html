@@ -28,13 +28,13 @@
       </label>
     </div>
 
-    <buttton class="float" onclick="callback()">
+    <button class="float" id="backbutton">
       <i class="fa fa-arrow-circle-left my-float" style="font-size: 50px;"></i>
-    </buttton>
+    </button>
 
-    <buttton class="floatt" onclick="refresh()">
+    <button class="floatt" id="refreshbutton">
       <i class="fa fa-refresh my-float" aria-hidden="true" style="font-size: 50px;"></i>
-    </buttton>
+    </button>
 
     <div id="main-area"></div>
 
@@ -54,7 +54,12 @@
     <script>
       const { remote } = require('electron');
       const mainProcess = remote.require('./main');
+      const fileSystem = require('./fileSystem');
+      const userInterface = require('./userInterface');
+      const { ipcRenderer } = require('electron');
       const dropfileszone = document.getElementById('main-area');
+      const back = document.getElementById('backbutton');
+      const refresh = document.getElementById('refreshbutton');
       var checkbox = document.querySelector('input[type="checkbox"]');
 
       document.addEventListener('dragstart', event => event.preventDefault() );
@@ -62,12 +67,30 @@
       document.addEventListener('dragleave', event => event.preventDefault() );
       document.addEventListener('drop', event => event.preventDefault() );
 
+      ipcRenderer.on('load', () => {
+        userInterface.bindDocument(window);
+        let folderPath = fileSystem.getUsersHomeFolder();
+        userInterface.loadDirectory(folderPath)(window);
+      })
+
+      ipcRenderer.on('refresh', () => {
+        userInterface.refreshh();
+      })
+
       dropfileszone.addEventListener('dragover', (event) => {
           dropfileszone.classList.add('drag-over');
       });
 
       dropfileszone.addEventListener('dragleave', (event) => {
           dropfileszone.classList.remove('drag-over');
+      });
+
+      back.addEventListener('click', (event) => {
+        userInterface.goBack();
+      });
+
+      refresh.addEventListener('click', (event) => {
+        userInterface.refreshh();
       });
 
       document.addEventListener('drop', (e) => {
@@ -96,6 +119,5 @@
   <script>
     require('./renderer');
   </script>
-  <script src="app.js"></script>
 
 </html>

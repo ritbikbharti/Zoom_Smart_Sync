@@ -1,4 +1,4 @@
-const { app, BrowserWindow , Tray, Menu, dialog, ipcMain, crashReporter, Notification, shell } = require('electron');
+const { app, BrowserWindow , Tray, Menu, dialog, crashReporter, Notification, shell } = require('electron');
 const fs = require('fs');
 const req = require('request');
 var chokidar = require("chokidar");
@@ -21,7 +21,7 @@ let isQuiting;
 let tray;
 
 const returnFirmName = exports.returnFirmName = () => {
-  return lawfirm;
+  return store.get('lawfirm');
 };
 
 //path of current directory shown in user interface
@@ -42,6 +42,7 @@ const dir = exports.dir = () => {
 }
 
 
+//electron application code
 app.on('before-quit', function () {
   isQuiting = true;
 });
@@ -55,7 +56,7 @@ app.on('ready', () => {
   uploadToServer: false
   })
 
-  tray = new Tray(nativeImage.createFromPath('C:/Users/Asus/Desktop/Electron App/icon.png'));
+  tray = new Tray(nativeImage.createFromPath('C:/Users/Asus/Desktop/Zoom Smart Sync v2/icon.png'));
 
   tray.setContextMenu(Menu.buildFromTemplate([
     {
@@ -87,6 +88,14 @@ app.on('ready', () => {
           label: 'Report Crash/Error',
           click : function(){
             shell.openExternal('mailto:ritbikbharti@gmail.com?Subject=Error%20Log%20File')
+          }
+        },
+        {
+          label: 'Logout',
+          click : function(){
+            store.delete('lawfirm');
+            isQuiting = true;
+            app.quit();
           }
         }
       ]
@@ -126,12 +135,12 @@ app.on('ready', () => {
   child.loadFile('login.html');
 
   child.once('ready-to-show', () => {
-    //store.delete('lawfirm');                          //Delete the saved configuration
     if(store.get('lawfirm')==undefined){
       child.show();
     }
     else{
       lawfirm = store.get('lawfirm');
+      mainWindow.webContents.send('load');
       mainWindow.show();
     }
   });
@@ -146,6 +155,8 @@ app.on('ready', () => {
 
 });
 
+
+//login function
 const login = exports.login = (username,pwd) => {
 
   var url = 'https://s3signedurlapi.herokuapp.com/verifyUser?name=';
@@ -157,19 +168,20 @@ const login = exports.login = (username,pwd) => {
         return console.log(err);
     }
     if(res.statusCode == '200'){
-      var folderstr = body;
-      var folders = folderstr.split('/');
-      fs.mkdir(appdir, { recursive: true }, (err) => { if (err) throw err; });
-      var x;
-      for(x in folders){
-        var fld = appdir.concat("/");
-        var fld = fld.concat(folders[x]);
-        fs.mkdir(fld, { recursive: true }, (err) => { if (err) throw err; });
-      }
       store.set('lawfirm',username)
       lawfirm = username;
       mainWindow.show();
       child.hide();
+      var folderstr = body;
+      var folders = folderstr.split('/');
+      fs.mkdir(home+"/Desktop/"+username, { recursive: true }, (err) => { if (err) throw err; });
+      var x;
+      for(x in folders){
+        var fld = home+"/Desktop/"+username.concat("/");
+        var fld = fld.concat(folders[x]);
+        fs.mkdir(fld, { recursive: true }, (err) => { if (err) throw err; });
+      }
+      mainWindow.webContents.send('load')
     }
     else{
       const options = {
@@ -210,26 +222,6 @@ const StopWatcher = exports.StopWatcher = () => {
   watcher.close().then(() => console.log('Watcher is closed'));
 };
 
-/*
-// Function to select files using dialog box
-const getFileFromUser = exports.getFileFromUser = () => {
-  const files = dialog.showOpenDialog({
-    properties: ['openFile','multiSelections'],
-    buttonLabel: 'Upload',
-    title: 'Smart Sync File Selector'
-  });
-
-  files.then(function(result){
-    if(result.filePaths.length === 0)
-      console.log("No Files Selected")
-    for(var i in result.filePaths){
-      console.log(result.filePaths[i]);
-    }
-  })
-
-};
-*/
-
 // Function to get files using drag and drop
 const getDraggedFileFromUser = exports.getDraggedFileFromUser = filepath => {
   //console.log(app.getPath('userData'))
@@ -247,6 +239,7 @@ function copyFile(filepath, currDirPath) {
     if (err) throw err;
     console.log('source file was copied to destination folder');
   });
+  mainWindow.webContents.send('refresh');
 }
 
 
@@ -387,7 +380,7 @@ function callNotification(not){
   const notif={
         title: 'Zoom Smart Sync',
         body: not,
-        icon: nativeImage.createFromPath('C:/Users/Asus/Desktop/Electron App/icon.png')
+        icon: nativeImage.createFromPath('C:/Users/Asus/Desktop/Zoom Smart Sync v2/icon.png')
       };
   new Notification(notif).show();
 }
