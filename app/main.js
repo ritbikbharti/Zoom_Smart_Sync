@@ -10,7 +10,7 @@ const store = new Store();
 
 let lawfirm = store.get('lawfirm');
 const home =  osenv.home();
-const appdir = home+"/Desktop/"+lawfirm;
+let appdir;
 const length = home.length+9
 
 var currDir, currDir1, currDirPath;
@@ -121,7 +121,7 @@ app.on('ready', () => {
 
   mainWindow.loadFile('home.html');
 
-  mainWindow.webContents.openDevTools()
+  //mainWindow.webContents.openDevTools()
 
   child = new BrowserWindow({
     parent: mainWindow,
@@ -142,6 +142,7 @@ app.on('ready', () => {
     }
     else{
       lawfirm = store.get('lawfirm');
+      appdir = home+"/Desktop/"+lawfirm;
       mainWindow.webContents.send('load');
       mainWindow.show();
     }
@@ -172,6 +173,7 @@ const login = exports.login = (username,pwd) => {
     if(res.statusCode == '200'){
       store.set('lawfirm',username)
       lawfirm = username;
+      appdir = home+"/Desktop/"+lawfirm;
       mainWindow.show();
       child.hide();
       var folderstr = body;
@@ -215,12 +217,55 @@ app.on('activate', () => {
 
 // Select directory to watch for file changes
 const watchdir = exports.watchdir = () => {
-  console.log(appdir);
+  //This sets up the file history recorder
+  var walk    = require('walk');
+  var files   = [];
+
+  // Walker options
+  var walker  = walk.walk(appdir, { followLinks: false });
+
+  walker.on('file', function(root, stat, next) {
+      // Add this file to the list of files
+      let temp = root + '/' + stat.name;
+      files.push(temp.replace(/\\/g, "/"));
+      next();
+  });
+
+  walker.on('end', function() {
+      console.log(files);
+      for (file of files) {
+        fs.appendFileSync('new.txt', file+'\n', 'utf8');
+      }
+  });
+
+  console.log("Watcher started on : "+appdir);
+  //start the watcher
   StartWatcher(appdir);
 };
 
 // Stop the currently running watcher
 const StopWatcher = exports.StopWatcher = () => {
+  //This sets up the file history recorder
+  var walk    = require('walk');
+  var files   = [];
+
+  // Walker options
+  var walker  = walk.walk(appdir, { followLinks: false });
+
+  walker.on('file', function(root, stat, next) {
+      // Add this file to the list of files
+      let temp = root + '/' + stat.name;
+      files.push(temp.replace(/\\/g, "/"));
+      next();
+  });
+
+  walker.on('end', function() {
+      console.log(files);
+      for (file of files) {
+        fs.appendFileSync('old.txt', file+'\n', 'utf8');
+      }
+  });
+
   watcher.close().then(() => console.log('Watcher is closed'));
 };
 

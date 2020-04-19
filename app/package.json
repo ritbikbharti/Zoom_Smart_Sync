@@ -18,11 +18,13 @@
     "async": "^3.2.0",
     "chokidar": "^3.3.1",
     "electron-store": "^5.1.1",
+    "findit": "^2.0.0",
     "jquery": "^3.4.1",
     "lunr": "^2.3.8",
     "menubar": "^8.0.0",
     "osenv": "^0.1.5",
     "pg": "^8.0.2",
-    "request": "^2.88.2"
+    "request": "^2.88.2",
+    "walk": "^2.3.14"
   }
 }
