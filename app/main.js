@@ -9,7 +9,7 @@ const Store = require('electron-store');
 const store = new Store();
 
 let lawfirm = store.get('lawfirm');
-const home =  osenv.home();
+const home = osenv.home();
 let appdir;
 const length = home.length+9
 
@@ -19,6 +19,18 @@ let mainWindow = null;
 let child;
 let isQuiting;
 let tray;
+
+function quitApplication(app){
+  const options = {
+    type: 'info',
+    message: 'Saving and exiting....'
+  };
+  dialog.showMessageBox(null, options);
+  setTimeout( function(){
+    if (tray) tray.destroy()
+    app.quit();
+  }, 3000 );
+}
 
 const returnFirmName = exports.returnFirmName = () => {
   return store.get('lawfirm');
@@ -41,6 +53,30 @@ const dir = exports.dir = () => {
   return currDir;
 }
 
+//Saves file history to old.txt
+function saveFileHistory() {
+  //This sets up the file history recorder
+  var walk    = require('walk');
+  var files   = [];
+
+  // Walker options
+  var walker  = walk.walk(appdir, { followLinks: false });
+
+  walker.on('file', function(root, stat, next) {
+      // Add this file to the list of files
+      let temp = root + '/' + stat.name;
+      files.push(temp.replace(/\\/g, "/"));
+      next();
+  });
+
+  walker.on('end', function() {
+      console.log(files);
+      for (file of files) {
+        fs.appendFileSync('old.txt', file+'\n', 'utf8');
+      }
+  });
+}
+
 
 //electron application code
 app.on('before-quit', function () {
@@ -52,8 +88,8 @@ app.on('ready', () => {
   crashReporter.start({
     productName: lawfirm,
     companyName: 'INSZoom',
-    submitURL: 'https://your-domain.com/url-to-submit',
-  uploadToServer: false
+    submitURL: 'https://zoomsmartsync.herokuapp.com/api/app-crash',
+  uploadToServer: true
   })
 
   tray = new Tray(nativeImage.createFromPath('C:/Users/Asus/Desktop/Zoom Smart Sync v2/icon.png'));
@@ -69,7 +105,8 @@ app.on('ready', () => {
     {
       label: 'Quit', click: function () {
         isQuiting = true;
-        app.quit();
+        saveFileHistory();
+        quitApplication(app);
       }
     }
   ]));
@@ -85,9 +122,9 @@ app.on('ready', () => {
           }
         },
         {
-          label: 'Report Crash/Error',
+          label: 'Crash the Application',
           click : function(){
-            shell.openExternal('mailto:ritbikbharti@gmail.com?Subject=Error%20Log%20File')
+            process.crash()
           }
         },
         {
@@ -95,6 +132,9 @@ app.on('ready', () => {
           click : function(){
             store.delete('lawfirm');
             isQuiting = true;
+            saveFileHistory(function(next) {
+              next();
+            });
             app.quit();
           }
         }
@@ -103,7 +143,7 @@ app.on('ready', () => {
     {
       label: 'Help',
       click: function(){
-        shell.openExternal('https://inszoom.com')
+        shell.openExternal('mailto:ritbikbharti@gmail.com?Subject=Error%20Log%20File')
       }
     }
   ]
@@ -118,6 +158,21 @@ app.on('ready', () => {
       nodeIntegration: true
     }
   });
+
+  mainWindow.webContents.on('unresponsive', () => {
+    const options = {
+      type: 'info',
+      title: 'Application Crashed',
+      message: 'The application has crashed.',
+      buttons: ['Reload','Close']
+    }
+
+    dialog.showMessageBox(null, options, (index) => {
+      if (index === 0) app.relaunch()
+      else app.quit()
+    })
+    //quitApplication()
+  })
 
   mainWindow.loadFile('home.html');
 
@@ -135,6 +190,8 @@ app.on('ready', () => {
   });
 
   child.loadFile('login.html');
+
+  //child.webContents.openDevTools()
 
   child.once('ready-to-show', () => {
     if(store.get('lawfirm')==undefined){
@@ -162,7 +219,7 @@ app.on('ready', () => {
 //login function
 const login = exports.login = (username,pwd) => {
 
-  var url = 'https://s3signedurlapi.herokuapp.com/verifyUser?name=';
+  var url = 'https://zoomsmartsync.herokuapp.com/api/verifyUser?name=';
   var url = url.concat(username);
   var url = url.concat('&pwd=');
   var URL  = url.concat(pwd);
@@ -185,7 +242,12 @@ const login = exports.login = (username,pwd) => {
         var fld = fld.concat(folders[x]);
         fs.mkdir(fld, { recursive: true }, (err) => { if (err) throw err; });
       }
-      mainWindow.webContents.send('load')
+      mainWindow.webContents.send('load');
+      const options = {
+        type: 'info',
+        message: 'Welcome! You are now logged in.'
+      };
+      dialog.showMessageBox(null, options);
     }
     else{
       const options = {
@@ -193,6 +255,7 @@ const login = exports.login = (username,pwd) => {
         message: 'Incorrect username or password! Please Check.'
       };
       dialog.showMessageBox(null, options);
+      child.reload();
     }
   });
 };
@@ -202,6 +265,7 @@ const login = exports.login = (username,pwd) => {
 app.on('window-all-closed', () => {
   // On macOS it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
+  if (tray) tray.destroy()
   if (process.platform !== 'darwin') {
     app.quit()
   }
@@ -217,6 +281,7 @@ app.on('activate', () => {
 
 // Select directory to watch for file changes
 const watchdir = exports.watchdir = () => {
+
   //This sets up the file history recorder
   var walk    = require('walk');
   var files   = [];
@@ -232,11 +297,32 @@ const watchdir = exports.watchdir = () => {
   });
 
   walker.on('end', function() {
+      console.log("\nNew.txt");
       console.log(files);
       for (file of files) {
         fs.appendFileSync('new.txt', file+'\n', 'utf8');
       }
+
+      if(fs.existsSync('old.txt')) {
+        var array = fs.readFileSync('old.txt', 'utf8').toString().split('\n');
+        console.log("\nOld.txt");
+        console.log(array);
+        for(var i=0;i<array.length-1;i++){
+          if(files.indexOf(array[i]) == -1){
+            console.log("This file has been deleted: "+array[i]);
+            delete_files(array[i]);
+          }
+        }
+        fs.unlinkSync('old.txt');
+      }
+
+      if(fs.existsSync('old.txt')) {
+        fs.unlinkSync('new.txt');
+      }
+
   });
+
+  
 
   console.log("Watcher started on : "+appdir);
   //start the watcher
@@ -245,33 +331,12 @@ const watchdir = exports.watchdir = () => {
 
 // Stop the currently running watcher
 const StopWatcher = exports.StopWatcher = () => {
-  //This sets up the file history recorder
-  var walk    = require('walk');
-  var files   = [];
-
-  // Walker options
-  var walker  = walk.walk(appdir, { followLinks: false });
-
-  walker.on('file', function(root, stat, next) {
-      // Add this file to the list of files
-      let temp = root + '/' + stat.name;
-      files.push(temp.replace(/\\/g, "/"));
-      next();
-  });
-
-  walker.on('end', function() {
-      console.log(files);
-      for (file of files) {
-        fs.appendFileSync('old.txt', file+'\n', 'utf8');
-      }
-  });
-
+  saveFileHistory();
   watcher.close().then(() => console.log('Watcher is closed'));
 };
 
 // Function to get files using drag and drop
 const getDraggedFileFromUser = exports.getDraggedFileFromUser = filepath => {
-  //console.log(app.getPath('userData'))
   console.log("Path of dragged file : "+filepath)
   console.log("Current Directory : "+currDir)
   copyFile(filepath,currDirPath);
@@ -292,7 +357,7 @@ function copyFile(filepath, currDirPath) {
 
 // Function to get presigned url
 function get_url(filepath) {
-  var url = 'https://s3signedurlapi.herokuapp.com/getSignedUrl?name=';
+  var url = 'https://zoomsmartsync.herokuapp.com/api/getSignedUrl?name=';
   var filename = path.parse(filepath).base;
   console.log(filename);
   var URL = url.concat(currDir)
@@ -309,7 +374,7 @@ function get_url(filepath) {
 
 // Function to get presigned url for watcher
 function get_urlwatcher(filepath) {
-  var url = 'https://s3signedurlapi.herokuapp.com/getSignedUrl?name=';
+  var url = 'https://zoomsmartsync.herokuapp.com/api/getSignedUrl?name=';
   var filename = path.parse(filepath).base;
   console.log(filename);
   var URL = url.concat(filepath.substr(length,filepath.length))
@@ -337,7 +402,10 @@ function upload_sync_files(body, filepath) {
         url: body,
         body: data
       }, function(err, res, body){
-        console.log(body);
+        if (err) {
+          return console.log(err);
+        }
+        //console.log(body);
         console.log("Status code for PUT Object: ", res.statusCode, "\n");
         callNotification("Files synced successfully\n");
       })
@@ -356,7 +424,10 @@ function upload_files(body, filepath) {
         url: body,
         body: data
       }, function(err, res, body){
-        console.log(body);
+        if (err) {
+          return console.log(err);
+        }
+        //console.log(body);
         console.log("Status code for PUT Object: ", res.statusCode, "\n");
         callNotification("File uploaded successfully\n");
       })
@@ -365,7 +436,7 @@ function upload_files(body, filepath) {
 
 // DELETE Request -- deletes the specified object
 function delete_files(filepath) {
-  var url = 'https://s3signedurlapi.herokuapp.com/deleteObject?name=';
+  var url = 'https://zoomsmartsync.herokuapp.com/api/deleteObject?name=';
   var filename = path.parse(filepath).base;
   //console.log(filename);
   var URL = url.concat(filepath.substr(length,filepath.length))
@@ -431,3 +502,8 @@ function callNotification(not){
       };
   new Notification(notif).show();
 }
+
+process.on('uncaughtException', function (error) {
+  // Handle the error
+  console.log('Uncaught : '+error)
+});
