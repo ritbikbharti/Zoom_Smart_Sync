@@ -132,10 +132,15 @@ app.on('ready', () => {
           click : function(){
             store.delete('lawfirm');
             isQuiting = true;
-            saveFileHistory(function(next) {
-              next();
-            });
-            app.quit();
+            saveFileHistory();
+            quitApplication(app);
+          }
+        },
+        {
+          label: 'Quit', click: function () {
+            isQuiting = true;
+            saveFileHistory();
+            quitApplication(app);
           }
         }
       ]
@@ -143,7 +148,7 @@ app.on('ready', () => {
     {
       label: 'Help',
       click: function(){
-        shell.openExternal('mailto:ritbikbharti@gmail.com?Subject=Error%20Log%20File')
+        shell.openExternal('mailto:ritbikbharti@gmail.com?Subject=Smart%20Sync%20App%20Help')
       }
     }
   ]
@@ -171,7 +176,6 @@ app.on('ready', () => {
       if (index === 0) app.relaunch()
       else app.quit()
     })
-    //quitApplication()
   })
 
   mainWindow.loadFile('home.html');
@@ -297,11 +301,11 @@ const watchdir = exports.watchdir = () => {
   });
 
   walker.on('end', function() {
-      console.log("\nNew.txt");
+      console.log("\nNew files");
       console.log(files);
-      for (file of files) {
+      /*for (file of files) {
         fs.appendFileSync('new.txt', file+'\n', 'utf8');
-      }
+      }*/
 
       if(fs.existsSync('old.txt')) {
         var array = fs.readFileSync('old.txt', 'utf8').toString().split('\n');
@@ -316,17 +320,12 @@ const watchdir = exports.watchdir = () => {
         fs.unlinkSync('old.txt');
       }
 
-      if(fs.existsSync('old.txt')) {
-        fs.unlinkSync('new.txt');
-      }
+      console.log("Watcher started on : "+appdir);
+      //start the watcher
+      StartWatcher(appdir);
 
   });
 
-  
-
-  console.log("Watcher started on : "+appdir);
-  //start the watcher
-  StartWatcher(appdir);
 };
 
 // Stop the currently running watcher
@@ -405,7 +404,6 @@ function upload_sync_files(body, filepath) {
         if (err) {
           return console.log(err);
         }
-        //console.log(body);
         console.log("Status code for PUT Object: ", res.statusCode, "\n");
         callNotification("Files synced successfully\n");
       })
@@ -502,8 +500,3 @@ function callNotification(not){
       };
   new Notification(notif).show();
 }
-
-process.on('uncaughtException', function (error) {
-  // Handle the error
-  console.log('Uncaught : '+error)
-});
