@@ -16,7 +16,10 @@ The features of Zoom Smart Sync can be stated as below:<br>
 ### Windows Installer
 Install the given .exe file and use the application. The app's directory will be created on desktop.
 
-### Build from scratch
+### Build from scratch [Linux, Win, MacOS]
+
+Prerequisite
+1. NodeJS and NPM should be installed in the system.
 
 API
 1. Run ```npm install``` in api folder's terminal.
@@ -25,6 +28,9 @@ API
 APP
 1. Run ```npm install``` in app folder's terminal.
 2. Run ```npm start``` to start the server.
+
+To build
+Run ```npx electron-builder build``` in app folders's terminal.
 
 ## Built with
 
