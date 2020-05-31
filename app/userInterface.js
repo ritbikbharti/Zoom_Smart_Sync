@@ -38,7 +38,6 @@ function loadDirectory(folderPath) {
       clearView();
       if (err) {
         console.log(err);
-        //return alert('Sorry, we could not load your folder');
       }
       fileSystem.inspectAndDescribeFiles(folderPath, files, displayFiles);
     });

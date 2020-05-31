@@ -20,10 +20,12 @@ let child;
 let isQuiting;
 let tray;
 
+var showInLogFlag = false;
+
 function quitApplication(app){
   const options = {
     type: 'info',
-    message: 'Saving and exiting....'
+    message: 'Wait!...Saving and Exiting....'
   };
   dialog.showMessageBox(null, options);
   setTimeout( function(){
@@ -55,6 +57,9 @@ const dir = exports.dir = () => {
 
 //Saves file history to old.txt
 function saveFileHistory() {
+  if(fs.existsSync('old.txt')) {
+    fs.unlinkSync('old.txt'); //Delete any existing old file log
+  }
   //This sets up the file history recorder
   var walk    = require('walk');
   var files   = [];
@@ -89,10 +94,10 @@ app.on('ready', () => {
     productName: lawfirm,
     companyName: 'INSZoom',
     submitURL: 'https://zoomsmartsync.herokuapp.com/api/app-crash',
-  uploadToServer: true
+    uploadToServer: true
   })
 
-  tray = new Tray(nativeImage.createFromPath('C:/Users/Asus/Desktop/Zoom Smart Sync v2/icon.png'));
+  tray = new Tray(nativeImage.createFromPath('C:/Users/Asus/Documents/Minor Project/Zoom Smart Sync v3/icon.png'));
 
   tray.setContextMenu(Menu.buildFromTemplate([
     {
@@ -119,12 +124,6 @@ app.on('ready', () => {
           label: 'About Us',
           click: function(){
             shell.openExternal('https://inszoom.com');
-          }
-        },
-        {
-          label: 'Crash the Application',
-          click : function(){
-            process.crash()
           }
         },
         {
@@ -303,20 +302,32 @@ const watchdir = exports.watchdir = () => {
   walker.on('end', function() {
       console.log("\nNew files");
       console.log(files);
-      /*for (file of files) {
-        fs.appendFileSync('new.txt', file+'\n', 'utf8');
-      }*/
 
       if(fs.existsSync('old.txt')) {
         var array = fs.readFileSync('old.txt', 'utf8').toString().split('\n');
         console.log("\nOld.txt");
         console.log(array);
+
+        //array has list of old files
+        var countold = 0;
         for(var i=0;i<array.length-1;i++){
           if(files.indexOf(array[i]) == -1){
             console.log("This file has been deleted: "+array[i]);
-            delete_files(array[i]);
+            countold++;
+            delete_files(array[i],9);
           }
         }
+        var countnew = 0;
+        for(var k=0;k<files.length;k++){
+          if(array.indexOf(files[k]) == -1){
+            console.log("This file has been added: "+files[k]);
+            countnew++;
+            get_urlwatcher(files[k],9);
+          }
+        }
+        if(countnew>0 && countold>0) callNotification(countnew +" files have been added\n" + countold +" files have been deleted\n");
+        else if(countnew>0 && countold<=0) callNotification(countold +" files have been added\n");
+        else if(countold>0 && countnew<=0) callNotification(countold +" files have been deleted\n");
         fs.unlinkSync('old.txt');
       }
 
@@ -331,6 +342,7 @@ const watchdir = exports.watchdir = () => {
 // Stop the currently running watcher
 const StopWatcher = exports.StopWatcher = () => {
   saveFileHistory();
+  showInLogFlag = false;
   watcher.close().then(() => console.log('Watcher is closed'));
 };
 
@@ -372,12 +384,11 @@ function get_url(filepath) {
 }
 
 // Function to get presigned url for watcher
-function get_urlwatcher(filepath) {
+function get_urlwatcher(filepath, num) {
   var url = 'https://zoomsmartsync.herokuapp.com/api/getSignedUrl?name=';
   var filename = path.parse(filepath).base;
   console.log(filename);
   var URL = url.concat(filepath.substr(length,filepath.length))
-  //var URL = URL.concat("/"+filename)
   var URL = URL.replace(/\\/g, "/");
   console.log(URL);
   //GET Request -- gets the presigned url
@@ -386,12 +397,12 @@ function get_urlwatcher(filepath) {
         return console.log(err);
     }
     console.log("Status code for GET SignedURL: ", res.statusCode);
-    upload_sync_files(body, filepath);     //URL is passed to upload function to give PUT Request to S3
+    upload_sync_files(body, filepath, num);     //URL is passed to upload function to give PUT Request to S3
   });
 }
 
 //Function to PUT Request -- puts the object to AWS S3 Bucket
-function upload_sync_files(body, filepath) {
+function upload_sync_files(body, filepath, num) {
   fs.readFile(filepath, function(err, data){        //file is read from the system
       if(err){
         return console.log(err);
@@ -405,7 +416,9 @@ function upload_sync_files(body, filepath) {
           return console.log(err);
         }
         console.log("Status code for PUT Object: ", res.statusCode, "\n");
-        callNotification("Files synced successfully\n");
+        if(num!=9){
+          callNotification("Files synced successfully\n");
+        }
       })
     });
 }
@@ -425,7 +438,6 @@ function upload_files(body, filepath) {
         if (err) {
           return console.log(err);
         }
-        //console.log(body);
         console.log("Status code for PUT Object: ", res.statusCode, "\n");
         callNotification("File uploaded successfully\n");
       })
@@ -433,10 +445,9 @@ function upload_files(body, filepath) {
 }
 
 // DELETE Request -- deletes the specified object
-function delete_files(filepath) {
+function delete_files(filepath, num) {
   var url = 'https://zoomsmartsync.herokuapp.com/api/deleteObject?name=';
   var filename = path.parse(filepath).base;
-  //console.log(filename);
   var URL = url.concat(filepath.substr(length,filepath.length))
   //var URL = URL.concat("/"+filename)
   var URL = URL.replace(/\\/g, "/");
@@ -446,7 +457,9 @@ function delete_files(filepath) {
           console.log(error);
       }else {
         console.log("Status code for Delete Object: ", res.statusCode);
-        callNotification("File deleted successfully\n");
+        if(num!=9){
+          callNotification("File deleted successfully\n");
+        }
       }
   });
 }
@@ -459,14 +472,18 @@ function StartWatcher(path){
   });
 
   function onWatcherReady(){
-      //console.info('From here we can check for real changes, the initial scan has been completed.');
+      console.info('From here we can check for real changes, the initial scan has been completed.');
+      showInLogFlag = true;
   }
         
   // Declare the listeners of the watcher
   watcher
   .on('add', function(path) {
-        console.log('File', path, 'has been added');
-        get_urlwatcher(path);
+
+        if(showInLogFlag){
+          console.log('File', path, 'has been added');
+          get_urlwatcher(path);
+        }
   })
   .on('addDir', function(path) {
         console.log('Directory', path, 'has been added');
@@ -496,7 +513,7 @@ function callNotification(not){
   const notif={
         title: 'Zoom Smart Sync',
         body: not,
-        icon: nativeImage.createFromPath('C:/Users/Asus/Desktop/Zoom Smart Sync v2/icon.png')
+        icon: nativeImage.createFromPath('C:/Users/Asus/Documents/Minor Project/Zoom Smart Sync v3/icon.png')
       };
   new Notification(notif).show();
 }
