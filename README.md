@@ -10,7 +10,8 @@ The features of Zoom Smart Sync can be stated as below:<br>
 2. Uploads files to S3 by drag & drop.<br>
 3. Uploads files through background auto sync process.
 
-
+<img src="Screenshots/login_screen.jpg" width="250" height="377" align="left"/> <img src="Screenshots/App_UI.jpg" width="500"/> 
+ 
 ## Installation
 
 ### Windows Installer
