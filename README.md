@@ -19,7 +19,7 @@ Install the given .exe file and use the application. The app's directory will be
 ### Build from scratch [Linux, Win, MacOS]
 
 Prerequisite<br>
-*NodeJS and NPM should be installed in the system.
+* NodeJS and NPM should be installed in the system.
 
 API
 1. Run ```npm install``` in api folder's terminal.
@@ -30,7 +30,7 @@ APP
 2. Run ```npm start``` to start the server.
 
 To build<br>
-*Run ```npx electron-builder build``` in app folders's terminal.
+* Run ```npx electron-builder build``` in app folders's terminal.
 
 ## Built with
 
